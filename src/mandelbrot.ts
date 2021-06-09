@@ -1,6 +1,6 @@
 function f(cr: number, ci: number, zr: number, zi: number) {
     const mr = zr * zr - zi * zi;
-    const mi = zr * zi * 2
+    const mi = zr * zi * 2;
     return [mr + cr, mi + ci];
 }
 
@@ -25,7 +25,7 @@ export function countIter(cr: number, ci: number) {
     let zr = 0;
     let zi = 0;
     let i = 0;
-    let mz2 = zr * zr + zi * zi;
+    let mz2 = 0;
     while (mz2 <= 8 && i < 512) {
         [zr, zi] = f(cr, ci, zr, zi);
         mz2 = zr * zr + zi * zi;
