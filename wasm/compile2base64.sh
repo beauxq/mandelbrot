@@ -1,4 +1,6 @@
 # prepare to compile
+# TODO: what's the best way to deal with this?
+# (this is how emsdk told me to use it)
 source ~/code/emsdk/emsdk_env.sh
 mkdir -p build
 
