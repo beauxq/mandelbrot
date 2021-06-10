@@ -113,8 +113,6 @@ class App {
     }
 
     private draw() {
-        const rgba = this.context.createImageData(this.canvas.width, this.canvas.height);
-        // moved to wasm
         if (this.wa.working) {
             this.wa.draw(this.context,
                          this.canvas.width,
@@ -124,41 +122,46 @@ class App {
                          this.topY);
         }
         else {  // js instead of wa
-            const scale = this.zoomW / this.canvas.width;
-            let i = 0;
-            for (let y = 0; y < this.canvas.height; ++y) {
-                for (let x = 0; x < this.canvas.width; ++x) {
-                    const sx = x * scale + this.leftX;
-                    const sy = y * scale + this.topY;
-                    let code = countIter(sx, sy);
-                    if (code < 512) {
-                        // console.log("before transform", code);
-                        code = Math.floor(this.ct.f(code));
-                        // console.log("after transform", code);
-                        let r: number, g: number, b: number;
-                        if (code > 255) {
-                            b  = code - 256;
-                            g = 255 - b;
-                            r = 0;
-                        }
-                        else {
-                            r = 255 - code;
-                            g = code;
-                            b = 0;
-                        }
-                        const baseIndex = i * 4;
-                        rgba.data[baseIndex] = r;
-                        rgba.data[baseIndex + 1] = g;
-                        rgba.data[baseIndex + 2] = b;
-                        rgba.data[baseIndex + 3] = 255;
-                    }
-                    ++i;
-                }
-            }
-            this.context.putImageData(rgba, 0, 0);
+            this.jsDraw();
         }
         console.log('draw completed');
         this.lastDraw = new Date().getTime();
+    }
+
+    private jsDraw() {
+        const rgba = this.context.createImageData(this.canvas.width, this.canvas.height);
+        const scale = this.zoomW / this.canvas.width;
+        let i = 0;
+        for (let y = 0; y < this.canvas.height; ++y) {
+            for (let x = 0; x < this.canvas.width; ++x) {
+                const sx = x * scale + this.leftX;
+                const sy = y * scale + this.topY;
+                let code = countIter(sx, sy);
+                if (code < 512) {
+                    // console.log("before transform", code);
+                    code = Math.floor(this.ct.f(code));
+                    // console.log("after transform", code);
+                    let r: number, g: number, b: number;
+                    if (code > 255) {
+                        b = code - 256;
+                        g = 255 - b;
+                        r = 0;
+                    }
+                    else {
+                        r = 255 - code;
+                        g = code;
+                        b = 0;
+                    }
+                    const baseIndex = i * 4;
+                    rgba.data[baseIndex] = r;
+                    rgba.data[baseIndex + 1] = g;
+                    rgba.data[baseIndex + 2] = b;
+                    rgba.data[baseIndex + 3] = 255;
+                }
+                ++i;
+            }
+        }
+        this.context.putImageData(rgba, 0, 0);
     }
 }
 
