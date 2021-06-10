@@ -1,10 +1,12 @@
 import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
+import WADrawer from './WADrawer';
 
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
     private ct: CodeTransformer;
+    private wa: WADrawer;
 
     // zoom info - in mandelbrot coordinates
     private leftX: number;
@@ -25,14 +27,26 @@ class App {
 
         this.lastDraw = 0;
 
-        this.ct = new CodeTransformer(5, 511);
+        this.ct = new CodeTransformer(5, 512);
+        this.wa = new WADrawer(width, height, 5, 512);
+
         this.canvas.addEventListener('click', () => {
-            this.ct.b = Math.min(20, this.ct.b + 1);
+            if (this.wa.working) {
+                // this.wa.updateB(5, 512);  // TODO: this
+            }
+            else {
+                this.ct.b = Math.min(20, this.ct.b + 1);
+            }
             this.draw();
         });
         this.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            this.ct.b = Math.max(1, this.ct.b - 1);
+            if (this.wa.working) {
+                // this.wa.updateB(5, 512);  // TODO: this
+            }
+            else {
+                this.ct.b = Math.max(1, this.ct.b - 1);
+            }
             this.draw();
         });
         this.canvas.addEventListener('wheel', (e) => {
@@ -75,6 +89,8 @@ class App {
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
 
+        this.wa.resize(width, height);
+
         this.draw();
     }
 
@@ -98,38 +114,49 @@ class App {
 
     private draw() {
         const rgba = this.context.createImageData(this.canvas.width, this.canvas.height);
-        const scale = this.zoomW / this.canvas.width;
-        let i = 0;
-        for (let y = 0; y < this.canvas.height; ++y) {
-            for (let x = 0; x < this.canvas.width; ++x) {
-                const sx = x * scale + this.leftX;
-                const sy = y * scale + this.topY;
-                let code = countIter(sx, sy);
-                if (code < 512) {
-                    // console.log("before transform", code);
-                    code = Math.floor(this.ct.f(code));
-                    // console.log("after transform", code);
-                    let r: number, g: number, b: number;
-                    if (code > 255) {
-                        b  = code - 256;
-                        g = 255 - b;
-                        r = 0;
-                    }
-                    else {
-                        r = 255 - code;
-                        g = code;
-                        b = 0;
-                    }
-                    const baseIndex = i * 4;
-                    rgba.data[baseIndex] = r;
-                    rgba.data[baseIndex + 1] = g;
-                    rgba.data[baseIndex + 2] = b;
-                    rgba.data[baseIndex + 3] = 255;
-                }
-                ++i;
-            }
+        // moved to wasm
+        if (this.wa.working) {
+            this.wa.draw(this.context,
+                         this.canvas.width,
+                         this.canvas.height,
+                         this.zoomW,
+                         this.leftX,
+                         this.topY);
         }
-        this.context.putImageData(rgba, 0, 0);
+        else {  // js instead of wa
+            const scale = this.zoomW / this.canvas.width;
+            let i = 0;
+            for (let y = 0; y < this.canvas.height; ++y) {
+                for (let x = 0; x < this.canvas.width; ++x) {
+                    const sx = x * scale + this.leftX;
+                    const sy = y * scale + this.topY;
+                    let code = countIter(sx, sy);
+                    if (code < 512) {
+                        // console.log("before transform", code);
+                        code = Math.floor(this.ct.f(code));
+                        // console.log("after transform", code);
+                        let r: number, g: number, b: number;
+                        if (code > 255) {
+                            b  = code - 256;
+                            g = 255 - b;
+                            r = 0;
+                        }
+                        else {
+                            r = 255 - code;
+                            g = code;
+                            b = 0;
+                        }
+                        const baseIndex = i * 4;
+                        rgba.data[baseIndex] = r;
+                        rgba.data[baseIndex + 1] = g;
+                        rgba.data[baseIndex + 2] = b;
+                        rgba.data[baseIndex + 3] = 255;
+                    }
+                    ++i;
+                }
+            }
+            this.context.putImageData(rgba, 0, 0);
+        }
         console.log('draw completed');
         this.lastDraw = new Date().getTime();
     }
