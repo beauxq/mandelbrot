@@ -17,7 +17,7 @@ export function inM(cr: number, ci: number) {
         }
     }
     console.log(zr, zi);
-    return zr * zr + zi * zi <= 8;
+    return zr * zr + zi * zi <= 4;
 }
 
 /** how many iterations to get above 2 */
@@ -26,12 +26,12 @@ export function countIter(cr: number, ci: number) {
     let zi = 0;
     let i = 0;
     let mz2 = 0;
-    while (mz2 <= 8 && i < 512) {
+    while (mz2 <= 4 && i < 512) {
         [zr, zi] = f(cr, ci, zr, zi);
         mz2 = zr * zr + zi * zi;
         ++i;
     }
-    return i + 1 / Math.max(mz2 - 8, 1);
+    return i + 1 / Math.max(mz2 - 4, 1);
 }
 
 export function test() {
