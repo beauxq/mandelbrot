@@ -9,40 +9,62 @@ function decode(b64: string): ArrayBufferLike {
     return array.buffer;
 };
 
+interface WAAPI {
+    initTrans: (b: number, k: number) => void,
+    draw: (
+        width: number,   // int
+        height: number,  // int
+        zoomW: number,   // double
+        leftX: number,   // double
+        topY: number     // double
+    ) => number,         // return value int for debugging
+    point: () => number, // offset in memory to pixel data
+    memory: { buffer: ArrayBufferLike }
+}
+
+/** check `working` before doing anything with this */
 class WADrawer {
-    private readonly instance: WebAssembly.Instance;
+    private readonly instance!: WebAssembly.Instance;
+    private readonly exports!: WebAssembly.Exports & WAAPI
     private data!: Uint8ClampedArray;
     private img!: ImageData;
     public readonly working: boolean;
 
     constructor(width: number, height: number, b: number, k: number) {
-        this.instance = new WebAssembly.Instance(
-            new WebAssembly.Module(new Uint8Array(decode(drawWasm)))
-        );
+        this.working = false;
+        if (WebAssembly && WebAssembly.Instance && WebAssembly.Module) {
+            this.instance = new WebAssembly.Instance(
+                new WebAssembly.Module(new Uint8Array(decode(drawWasm)))
+            );
+
+            this.working = !!(this.instance &&
+                              this.instance.exports &&
+                              this.instance.exports.initTrans && 
+                              this.instance.exports.draw &&
+                              this.instance.exports.point);
+        }
+        console.log("WebAssembly working:", this.working);
 
         console.log("wa instance:");
         console.log(this.instance);
 
-        // TODO: save b to update it later
-        this.updateB(b, k);
+        if (this.working) {
+            this.exports = this.instance.exports as WebAssembly.Exports & WAAPI;
+            // TODO: save b to update it later
+            this.updateB(b, k);
 
-        this.resize(width, height);
-
-        this.working = true;
+            this.resize(width, height);
+        }
     }
 
     public updateB(b: number, k: number) {
-        // @ts-expect-error
-        this.instance.exports.initTrans(b, k);
+        this.exports.initTrans(b, k);
     }
 
     public resize(width: number, height: number) {
-        // TODO: figure out how to get typescript to see exports
-        // @ts-expect-error
-        const pointer = this.instance.exports.point();
+        const pointer = this.exports.point();
         console.log("pointer", pointer);
-        // @ts-expect-error
-        this.data = new Uint8ClampedArray(this.instance.exports.memory.buffer, pointer, width * height * 4);
+        this.data = new Uint8ClampedArray(this.exports.memory.buffer, pointer, width * height * 4);
         this.img = new ImageData(this.data, width, height);
     }
 
@@ -63,14 +85,13 @@ class WADrawer {
                 leftX: number,
                 topY: number) {
         // this.logPixels(2);
-        // @ts-expect-error
-        const ret = this.instance.exports.draw(width, height, zoomW, leftX, topY);
-        // console.log("ret", ret);
+        const ret = this.exports.draw(width, height, zoomW, leftX, topY);
+        console.log("color or top left pixel", ret);
         // this.logPixels(2);
         context.putImageData(this.img, 0, 0);
     }
 
-    // @ts-ignore
+    // @ts-ignore - debugging
     private logPixels(count: number) {
         const tp: number[] = [];
         for (let i = 0; i < count * 4; ++i) {
