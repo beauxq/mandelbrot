@@ -10,23 +10,20 @@ function decode(b64: string): ArrayBufferLike {
 };
 
 class WADrawer {
-    private readonly memory: WebAssembly.Memory;
     private readonly instance: WebAssembly.Instance;
     private data!: Uint8ClampedArray;
     private img!: ImageData;
     public readonly working: boolean;
 
     constructor(width: number, height: number, b: number, k: number) {
-        const memSize = 256;
-        const memory = new WebAssembly.Memory({ initial: memSize, maximum: memSize });
         this.instance = new WebAssembly.Instance(
-            new WebAssembly.Module(new Uint8Array(decode(drawWasm))),
-            { env: { memory } }
+            new WebAssembly.Module(new Uint8Array(decode(drawWasm)))
         );
-        this.memory = memory;
 
+        console.log("wa instance:");
         console.log(this.instance);
 
+        // TODO: save b to update it later
         this.updateB(b, k);
 
         this.resize(width, height);
@@ -65,23 +62,21 @@ class WADrawer {
                 zoomW: number,
                 leftX: number,
                 topY: number) {
-        this.logPixels(2);
+        // this.logPixels(2);
         // @ts-expect-error
         const ret = this.instance.exports.draw(width, height, zoomW, leftX, topY);
-        console.log("ret", ret);
-        this.logPixels(2);
+        // console.log("ret", ret);
+        // this.logPixels(2);
         context.putImageData(this.img, 0, 0);
     }
 
+    // @ts-ignore
     private logPixels(count: number) {
         const tp: number[] = [];
         for (let i = 0; i < count * 4; ++i) {
             tp.push(this.data[i]);
         }
         console.log(tp);
-        console.log(this.memory.buffer.byteLength);
-        console.log(this.memory.buffer.slice(0, 9));
-        console.log(this.memory.buffer.slice(1024, 1034));
     }
 }
 
