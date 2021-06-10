@@ -20,6 +20,7 @@ export function inM(cr: number, ci: number) {
     return zr * zr + zi * zi <= 4;
 }
 
+// TODO: include same optimizations as C code
 /** how many iterations to get above 2 */
 export function countIter(cr: number, ci: number) {
     let zr = 0;
