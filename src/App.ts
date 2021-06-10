@@ -2,6 +2,8 @@ import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
 
+// TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
+
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
@@ -13,7 +15,7 @@ class App {
     private topY: number;
     private zoomE: number;
 
-    private lastDraw: number;
+    private changed: boolean;
 
     constructor(width: number, height: number) {
         this.canvas = document.getElementById('c') as HTMLCanvasElement;
@@ -25,7 +27,7 @@ class App {
         this.zoomE = 8;
         this.topY = - this.zoomH / 2;  // put imaginary (y) 0 in middle
 
-        this.lastDraw = 0;
+        this.changed = true;
 
         this.ct = new CodeTransformer(5, 512);
         this.wa = new WADrawer(width, height, 5, 512);
@@ -37,7 +39,7 @@ class App {
             else {
                 this.ct.b = Math.min(20, this.ct.b + 1);
             }
-            this.draw();
+            this.changed = true;
         });
         this.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -47,31 +49,28 @@ class App {
             else {
                 this.ct.b = Math.max(1, this.ct.b - 1);
             }
-            this.draw();
+            this.changed = true;
         });
         this.canvas.addEventListener('wheel', (e) => {
-            const now = new Date().getTime();
-            if (now - this.lastDraw > 20) {
-                console.log("wheel event");
-                console.log(e);
-                const out = e.deltaY > 0;
-                const x = e.offsetX;
-                const y = e.offsetY;
-                const xp = x / width;
-                const yp = y / height;
-                const mx = this.leftX + xp * this.zoomW;
-                const my = this.topY + yp * this.zoomH;
-                console.log("mx", mx, "my", my);
-                if (out) {
-                    this.zoomE = Math.min(16, this.zoomE + 1);
-                }
-                else {  // zoom in
-                    this.zoomE = this.zoomE - 1;
-                }
-                this.leftX = mx - xp * this.zoomW;
-                this.topY = my - yp * this.zoomH;
-                this.draw();
+            const out = e.deltaY > 0;
+            const x = e.offsetX;
+            const y = e.offsetY;
+            const xp = x / width;
+            const yp = y / height;
+            const mx = this.leftX + xp * this.zoomW;
+            const my = this.topY + yp * this.zoomH;
+            console.log("mx", mx, "my", my);
+            if (out) {
+                this.zoomE = Math.min(16, this.zoomE + 1);
+                console.log("zoom out", this.zoomE);
             }
+            else {  // zoom in
+                this.zoomE = this.zoomE - 1;
+                console.log("zoom in ", this.zoomE);
+            }
+            this.leftX = mx - xp * this.zoomW;
+            this.topY = my - yp * this.zoomH;
+            this.changed = true;
         });
 
         // TODO: move to unit tests
@@ -81,7 +80,9 @@ class App {
         console.log("should be ~100", this.ct.f(11));
         console.log("should be ~150", this.ct.f(17));
 
-        this.draw();
+        requestAnimationFrame(() => {
+            this.draw();
+        });
     }
 
     public resize(width: number, height: number) {
@@ -91,7 +92,7 @@ class App {
 
         this.wa.resize(width, height);
 
-        this.draw();
+        this.changed = true;
     }
 
     /**
@@ -113,19 +114,24 @@ class App {
     }
 
     private draw() {
-        if (this.wa.working) {
-            this.wa.draw(this.context,
-                         this.canvas.width,
-                         this.canvas.height,
-                         this.zoomW,
-                         this.leftX,
-                         this.topY);
+        if (this.changed) {
+            if (this.wa.working) {
+                this.wa.draw(this.context,
+                            this.canvas.width,
+                            this.canvas.height,
+                            this.zoomW,
+                            this.leftX,
+                            this.topY);
+            }
+            else {  // js instead of wa
+                this.jsDraw();
+            }
+            console.log('draw completed');
+            this.changed = false;
         }
-        else {  // js instead of wa
-            this.jsDraw();
-        }
-        console.log('draw completed');
-        this.lastDraw = new Date().getTime();
+        requestAnimationFrame(() => {
+            this.draw();
+        });
     }
 
     private jsDraw() {
