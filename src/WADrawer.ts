@@ -1,5 +1,7 @@
 import { drawWasm } from './drawWasm';
 
+// TODO: wasm in worker: https://www.kevinhoyt.com/2018/10/31/transferable-imagedata/
+
 function decode(b64: string): ArrayBufferLike {
     const str = window.atob(b64);
     const array = new Uint8Array(str.length);
@@ -85,8 +87,11 @@ class WADrawer {
                 leftX: number,
                 topY: number) {
         // this.logPixels(2);
-        const ret = this.exports.draw(width, height, zoomW, leftX, topY);
-        console.log("color or top left pixel", ret);
+        // const t0 = performance.now();
+        /*const ret =*/ this.exports.draw(width, height, zoomW, leftX, topY);
+        // const t1 = performance.now();
+        // console.log("time " + (t1 - t0));
+        // console.log("color or top left pixel", ret);
         // this.logPixels(2);
         context.putImageData(this.img, 0, 0);
     }
