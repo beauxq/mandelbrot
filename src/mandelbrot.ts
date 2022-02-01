@@ -1,10 +1,23 @@
-function f(cr: number, ci: number, zr: number, zi: number) {
+/**
+ * `f_c(z) = z² + c`
+ * 
+ * `r` for real parts, `i` for imaginary parts
+ * 
+ * @returns [result (real), result (imaginary)]
+ */
+function f(cr: number, ci: number, zr: number, zi: number): [number, number] {
     const mr = zr * zr - zi * zi;
     const mi = zr * zi * 2;
     return [mr + cr, mi + ci];
 }
 
-/** membership test */
+/**
+ * mandelbrot set membership test
+ * 
+ * For the given `c`, does `z`, starting at `0`, not diverge when `z = f(z)` is iterated infinite times?
+ * 
+ * (`z` diverges if its magnitude becomes > 2)
+ */
 export function inM(cr: number, ci: number) {
     console.log("testing c", cr, ci);
     let zr = 0;
