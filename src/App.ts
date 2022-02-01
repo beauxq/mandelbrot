@@ -55,11 +55,13 @@ class App {
             const out = e.deltaY > 0;
             const x = e.offsetX;
             const y = e.offsetY;
+            /** mouse x 0 to 1 in window */
             const xp = x / width;
+            /** mouse y 0 to 1 in window */
             const yp = y / height;
-            const mx = this.leftX + xp * this.zoomW;
-            const my = this.topY + yp * this.zoomH;
-            console.log("mx", mx, "my", my);
+            const mandelbrotX = this.leftX + xp * this.zoomW;
+            const mandelbrotY = this.topY + yp * this.zoomH;
+            console.log("mandelbrotX", mandelbrotX, "mandelbrotY", mandelbrotY);
             if (out) {
                 this.zoomE = Math.min(16, this.zoomE + 1);
                 console.log("zoom out", this.zoomE);
@@ -68,8 +70,11 @@ class App {
                 this.zoomE = this.zoomE - 1;
                 console.log("zoom in ", this.zoomE);
             }
-            this.leftX = mx - xp * this.zoomW;
-            this.topY = my - yp * this.zoomH;
+            // clamp these to not get lost too far away from home
+            // I can put 3 on the left, or -3 on the right (-19 + 2 ** (zoomE limit / 4))
+            this.leftX = Math.min(Math.max(mandelbrotX - xp * this.zoomW, -19), 3);
+            this.topY = Math.min(Math.max(mandelbrotY - yp * this.zoomH, -19), 3);
+            // TODO: once I implement mobile controls, make sure the Y limit isn't too restrictive on a portrait screen
             this.changed = true;
         });
 
