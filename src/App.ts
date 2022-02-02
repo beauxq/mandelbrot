@@ -1,6 +1,7 @@
 import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
+import DrawFrame from './DrawFrame';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
 
@@ -16,12 +17,14 @@ class App {
     private zoomE: number;
 
     private changed: boolean;
+    private drawFrame: DrawFrame;
 
     constructor(width: number, height: number) {
         this.canvas = document.getElementById('c') as HTMLCanvasElement;
         this.canvas.width = width;
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
+        this.drawFrame = new DrawFrame(this.context);
 
         this.leftX = - 2.5;  // left side of canvas is real (x) = leftX in mandelbrot plane
         this.zoomE = 8;
@@ -119,6 +122,22 @@ class App {
     }
 
     private draw() {
+        if (this.wa.working) {
+            if (this.changed) {
+                this.wa.draw(this.context,
+                             this.canvas.width,
+                             this.canvas.height,
+                             this.zoomW,
+                             this.leftX,
+                             this.topY);
+            }
+        }
+        else {  // js instead of wasm
+            if (this.changed) {
+                this.drawFrame.updateZoom(this.context);
+            }
+            this.jsDraw();
+        }
         if (this.changed) {
             if (this.wa.working) {
                 this.wa.draw(this.context,
@@ -140,39 +159,36 @@ class App {
     }
 
     private jsDraw() {
-        const rgba = this.context.createImageData(this.canvas.width, this.canvas.height);
         const scale = this.zoomW / this.canvas.width;
-        let i = 0;
-        for (let y = 0; y < this.canvas.height; ++y) {
-            for (let x = 0; x < this.canvas.width; ++x) {
-                const sx = x * scale + this.leftX;
-                const sy = y * scale + this.topY;
-                let code = countIter(sx, sy);
-                if (code < 512) {
-                    // console.log("before transform", code);
-                    code = Math.floor(this.ct.f(code));
-                    // console.log("after transform", code);
-                    let r: number, g: number, b: number;
-                    if (code > 255) {
-                        b = code - 256;
-                        g = 255 - b;
-                        r = 0;
-                    }
-                    else {
-                        r = 255 - code;
-                        g = code;
-                        b = 0;
-                    }
-                    const baseIndex = i * 4;
-                    rgba.data[baseIndex] = r;
-                    rgba.data[baseIndex + 1] = g;
-                    rgba.data[baseIndex + 2] = b;
-                    rgba.data[baseIndex + 3] = 255;
+        const eachPixel: (x: number, y: number) => [number, number, number] = (x: number, y: number) => {
+            const sx = x * scale + this.leftX;
+            const sy = y * scale + this.topY;
+            let code = countIter(sx, sy);
+            if (code < 512) {
+                // console.log("before transform", code);
+                code = Math.floor(this.ct.f(code));
+                // console.log("after transform", code);
+                let r: number, g: number, b: number;
+                if (code > 255) {
+                    b = code - 256;
+                    g = 255 - b;
+                    r = 0;
                 }
-                ++i;
+                else {
+                    r = 255 - code;
+                    g = code;
+                    b = 0;
+                }
+                return [r, g, b];
             }
+            return [0, 0, 0];
+        };
+        const endTime = Date.now() + 12;
+        let drew = this.drawFrame.writeSquare(this.canvas.width, this.canvas.height, eachPixel);
+        while (drew && Date.now() < endTime) {
+            drew = this.drawFrame.writeSquare(this.canvas.width, this.canvas.height, eachPixel);
         }
-        this.context.putImageData(rgba, 0, 0);
+        this.context.putImageData(this.drawFrame.rgba, 0, 0);
     }
 }
 
