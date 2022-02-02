@@ -64,10 +64,12 @@ class WADrawer {
     }
 
     public resize(width: number, height: number) {
-        const pointer = this.exports.point();
-        console.log("pointer", pointer);
-        this.data = new Uint8ClampedArray(this.exports.memory.buffer, pointer, width * height * 4);
-        this.img = new ImageData(this.data, width, height);
+        if (this.working) {
+            const pointer = this.exports.point();
+            console.log("pointer", pointer);
+            this.data = new Uint8ClampedArray(this.exports.memory.buffer, pointer, width * height * 4);
+            this.img = new ImageData(this.data, width, height);
+        }
     }
 
     /**
