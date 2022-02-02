@@ -35,12 +35,12 @@ export function inM(cr: number, ci: number) {
 
 // TODO: include same optimizations as C code
 /** how many iterations to get above 2 */
-export function countIter(cr: number, ci: number) {
+export function countIter(cr: number, ci: number, limit: number = 512) {
     let zr = 0;
     let zi = 0;
     let i = 0;
     let mz2 = 0;
-    while (mz2 <= 4 && i < 512) {
+    while (mz2 <= 4 && i < limit) {
         [zr, zi] = f(cr, ci, zr, zi);
         mz2 = zr * zr + zi * zi;
         ++i;

@@ -8,6 +8,7 @@ import DrawFrame from './DrawFrame';
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
+    private drawFrame: DrawFrame;
     private ct: CodeTransformer;
     private wa: WADrawer;
 
@@ -17,7 +18,7 @@ class App {
     private zoomE: number;
 
     private changed: boolean;
-    private drawFrame: DrawFrame;
+    private osc: HTMLCanvasElement;  // for copying image with different transformation when changing it
 
     constructor(width: number, height: number) {
         this.canvas = document.getElementById('c') as HTMLCanvasElement;
@@ -31,6 +32,7 @@ class App {
         this.topY = - this.zoomH / 2;  // put imaginary (y) 0 in middle
 
         this.changed = true;
+        this.osc = document.createElement('canvas');
 
         this.ct = new CodeTransformer(5, 512);
         this.wa = new WADrawer(width, height, 5, 512);
@@ -65,19 +67,36 @@ class App {
             const mandelbrotX = this.leftX + xp * this.zoomW;
             const mandelbrotY = this.topY + yp * this.zoomH;
             console.log("mandelbrotX", mandelbrotX, "mandelbrotY", mandelbrotY);
+            let newWidth, newHeight, newLeft, newTop;  // of current canvas on new canvas
+            const scaler = 1.189207115002721;  // 2 ** (1/4) for transformation
             if (out) {
                 this.zoomE = Math.min(16, this.zoomE + 1);
                 console.log("zoom out", this.zoomE);
+                newWidth = this.canvas.width / scaler;
+                newHeight = this.canvas.height / scaler;
+                newLeft = x - x / scaler;
+                newTop = y - y / scaler;
             }
             else {  // zoom in
-                this.zoomE = this.zoomE - 1;
+                this.zoomE = Math.max(-256, this.zoomE - 1);  // -256 is about where you hit the limits of 64-bit float precision
                 console.log("zoom in ", this.zoomE);
+                newWidth = this.canvas.width * scaler;
+                newHeight = this.canvas.height * scaler;
+                newLeft = x - x * scaler;
+                newTop = y - y * scaler;
             }
             // clamp these to not get lost too far away from home
             // I can put 3 on the left, or -3 on the right (-19 + 2 ** (zoomE limit / 4))
             this.leftX = Math.min(Math.max(mandelbrotX - xp * this.zoomW, -19), 3);
             this.topY = Math.min(Math.max(mandelbrotY - yp * this.zoomH, -19), 3);
             // TODO: once I implement mobile controls, make sure the Y limit isn't too restrictive on a portrait screen
+
+            this.osc.width = this.canvas.width;
+            this.osc.height = this.canvas.height;
+            const oscContext = this.osc.getContext('2d');
+            oscContext?.drawImage(this.canvas, 0, 0);
+            this.context.drawImage(this.osc, newLeft, newTop, newWidth, newHeight);
+
             this.changed = true;
         });
 
