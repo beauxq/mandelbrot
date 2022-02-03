@@ -2,6 +2,7 @@ import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
 import DrawFrame from './DrawFrameScatter';
+import PixelOrderer from './PixelOrderer';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
 
@@ -19,9 +20,10 @@ const iterationLimit = 3648;  // quality of image when further zoomed in, but al
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
-    private drawFrame: DrawFrame;
+    private drawFrame: PixelOrderer;
     private ct: CodeTransformer;
     private wa: WADrawer;
+    private useWasm: boolean;
 
     // zoom info - in mandelbrot coordinates
     private leftX: number;
@@ -47,9 +49,10 @@ class App {
 
         this.ct = new CodeTransformer(5, iterationLimit);
         this.wa = new WADrawer(width, height, 5, 512);  // TODO: apply iterationLimit to wasm
+        this.useWasm = false;  // TODO: option to toggle this on and off
 
         this.canvas.addEventListener('click', () => {
-            if (this.wa.working) {
+            if (this.useWasm && this.wa.working) {
                 // this.wa.updateB(5, 512);  // TODO: this
             }
             else {
@@ -59,7 +62,7 @@ class App {
         });
         this.canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            if (this.wa.working) {
+            if (this.useWasm && this.wa.working) {
                 // this.wa.updateB(5, 512);  // TODO: this
             }
             else {
@@ -196,13 +199,15 @@ class App {
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
 
-        this.wa.resize(width, height);
+        if (this.useWasm && this.wa.working) {
+            this.wa.resize(width, height);
+        }
 
         this.changed = true;
     }
 
     private draw() {
-        if (! this.wa.working) {
+        if (this.useWasm && this.wa.working) {
             if (this.changed) {
                 this.wa.draw(this.context,
                              this.canvas.width,

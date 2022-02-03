@@ -1,4 +1,6 @@
-class DrawFrame {
+import PixelOrderer from "./PixelOrderer";
+
+class DrawFrame implements PixelOrderer {
     // initialized in updateZoom (really wish TypeScript would fix this)
     private _rgba!: ImageData;
     private nextX!: number;
