@@ -1,7 +1,7 @@
 import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
-import DrawFrame from './DrawFrame';
+import DrawFrame from './DrawFrameScatter';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
 
@@ -11,6 +11,9 @@ const zoomScaler = 2 ** (1 / zoomExponentDenominator);
 const zoomOutLimit = 4;  // 2 ** zoomOutLimit = visible width of mandelbrot plane
 const zoomInLimit = -64;  // 2 ** -64 is total loss of 64-bit float precision
 const defaultZoom = 2;  // 2 ** defaultZoom = starts at 4 [-2.5, 1.5]
+
+const iterationLimit = 3648;  // quality of image when further zoomed in, but also render time
+// to get purple edges, this needs to be (a multiple of 768) + about 576
 
 
 class App {
@@ -42,8 +45,8 @@ class App {
         this.changed = true;
         this.osc = document.createElement('canvas');
 
-        this.ct = new CodeTransformer(5, 512);
-        this.wa = new WADrawer(width, height, 5, 512);
+        this.ct = new CodeTransformer(5, iterationLimit);
+        this.wa = new WADrawer(width, height, 5, 512);  // TODO: apply iterationLimit to wasm
 
         this.canvas.addEventListener('click', () => {
             if (this.wa.working) {
@@ -89,8 +92,11 @@ class App {
                 console.log("zoom in ", this.zoomE);
                 newWidth = this.canvas.width * zoomScaler;
                 newHeight = this.canvas.height * zoomScaler;
-                newLeft = x - x * zoomScaler;
-                newTop = y - y * zoomScaler;
+                // In both Chrome and Firefox,
+                // the pixels are 1/2 pixel off from where they should be -
+                // something you don't notice until you scale it up.
+                newLeft = (x + 0.5) - (x + 0.5) * zoomScaler;
+                newTop = (y + 0.5) - (y + 0.5) * zoomScaler;
             }
             // clamp these to not get lost too far away from home
             // I can put 3 on the left, or -3 on the right
@@ -223,15 +229,20 @@ class App {
         const scale = this.zoomW / this.canvas.width;  // TODO: cache this calculation for optimization
         const sx = x * scale + this.leftX;
         const sy = y * scale + this.topY;
-        let code = countIter(sx, sy);
+        let code = countIter(sx, sy, iterationLimit);
         let r = 0;
         let g = 0;
         let b = 0;
-        if (code < 512) {
+        if (code < iterationLimit) {
             // console.log("before transform", code);
-            code = Math.floor(this.ct.f(code));
+            code = Math.floor(this.ct.f(code)) % 768;
             // console.log("after transform", code);
-            if (code > 255) {
+            if (code > 511) {
+                r = code - 512;
+                g = 0;
+                b = 255 - r;
+            }
+            else if (code > 255) {
                 b = code - 256;
                 g = 255 - b;
                 r = 0;
