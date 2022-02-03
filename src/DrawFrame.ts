@@ -4,13 +4,17 @@ import PixelOrderer from "./PixelOrderer";
  * Draw pixels from middle of canvas in squares going out towards the edges.
  */
 class DrawFrame implements PixelOrderer {
+    private codeToColor: (code: number) => [number, number, number];
     // initialized in updateZoom (really wish TypeScript would fix this)
+    private width!: number;
+    private height!: number;
     private _rgba!: ImageData;
     private nextX!: number;
     private nextY!: number;
     private nextW!: number;
 
-    constructor(context: CanvasRenderingContext2D) {
+    constructor(context: CanvasRenderingContext2D, codeToColor: (code: number) => [number, number, number]) {
+        this.codeToColor = codeToColor;
         this.updateZoom(context);
     }
 
@@ -19,10 +23,12 @@ class DrawFrame implements PixelOrderer {
     }
 
     public updateZoom(context: CanvasRenderingContext2D): void {
-        this._rgba = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
-        this.nextX = Math.floor((context.canvas.width - 1) / 2);
-        this.nextY = Math.floor((context.canvas.height - 1) / 2);
-        this.nextW = 2 - (context.canvas.width & 1);
+        this.width = context.canvas.width;
+        this.height = context.canvas.height;
+        this._rgba = context.getImageData(0, 0, this.width, this.height);
+        this.nextX = Math.floor((this.width - 1) / 2);
+        this.nextY = Math.floor((this.height - 1) / 2);
+        this.nextW = 2 - (this.width & 1);
     }
 
     /**
@@ -30,9 +36,7 @@ class DrawFrame implements PixelOrderer {
      * 
      * @returns anything left to draw on this canvas
     */
-    public writePixels(width: number,
-                       height: number,
-                       callback: (x: number, y: number) => [number, number, number]): boolean {
+    public writePixels(callback: (x: number, y: number) => number): boolean {
         if (this.nextX < 0 && this.nextY < 0) {
             // everything outside of canvas
             return false;
@@ -42,8 +46,8 @@ class DrawFrame implements PixelOrderer {
         let y = this.nextY;
 
         const doThisPixel = () => {
-            const baseIndex = (y * width + x) * 4;
-            let [r, g, b] = callback(x, y);
+            const baseIndex = (y * this.width + x) * 4;
+            let [r, g, b] = this.codeToColor(callback(x, y));
             this._rgba.data[baseIndex] = r;
             this._rgba.data[baseIndex + 1] = g;
             this._rgba.data[baseIndex + 2] = b;
@@ -54,7 +58,7 @@ class DrawFrame implements PixelOrderer {
         // right across top of square
         if (y >= 0) {
             for (moving = this.nextW; moving > 0; --moving) {
-                if (x >= 0 && x < width) {
+                if (x >= 0 && x < this.width) {
                     doThisPixel();
                 }
                 ++x;
@@ -66,10 +70,10 @@ class DrawFrame implements PixelOrderer {
         --x;
 
         // down on right edge of square
-        if (x < width) {
+        if (x < this.width) {
             for (moving = this.nextW - 1; moving > 0; --moving) {
                 ++y;
-                if (y >= 0 && y < height) {
+                if (y >= 0 && y < this.height) {
                     doThisPixel();
                 }
             }
@@ -79,10 +83,10 @@ class DrawFrame implements PixelOrderer {
         }
 
         // left across bottom of square
-        if (y < height) {
+        if (y < this.height) {
             for (moving = this.nextW - 1; moving > 0; --moving) {
                 --x;
-                if (x >= 0 && x < width) {
+                if (x >= 0 && x < this.width) {
                     doThisPixel();
                 }
             }
@@ -95,7 +99,7 @@ class DrawFrame implements PixelOrderer {
         if (x >= 0) {
             for (moving = this.nextW - 2; moving > 0; --moving) {
                 --y;
-                if (y >= 0 && y < height) {
+                if (y >= 0 && y < this.height) {
                     doThisPixel();
                 }
             }

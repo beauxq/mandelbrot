@@ -38,7 +38,9 @@ class App {
         this.canvas.width = width;
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
-        this.pixelOrderer = new ScatterPixels(this.context);
+        this.pixelOrderer = new ScatterPixels(this.context, (code: number) => {
+            return this.codeToColor(code);
+        });
 
         this.leftX = - 2.5;  // left side of canvas is real (x) = leftX in mandelbrot plane
         this.zoomE = defaultZoom * zoomExponentDenominator;
@@ -150,6 +152,7 @@ class App {
 
     /** fill in some color around the edges when zooming out */
     private fastEdges(addedWidthLeft: number, addedHeightTop: number) {
+        // TODO: BUG: If I scroll out in ~ mid-right screen, this misses something in the bottom right
         addedWidthLeft = Math.ceil(addedWidthLeft);
         addedHeightTop = Math.ceil(addedHeightTop);
         const scalerDiff = zoomScaler - 1;
@@ -230,11 +233,7 @@ class App {
         });
     }
 
-    private colorForPixel(x: number, y: number): [number, number, number] {
-        const scale = this.zoomW / this.canvas.width;  // TODO: cache this calculation for optimization
-        const sx = x * scale + this.leftX;
-        const sy = y * scale + this.topY;
-        let code = countIter(sx, sy, iterationLimit);
+    private codeToColor(code: number): [number, number, number] {
         let r = 0;
         let g = 0;
         let b = 0;
@@ -261,14 +260,26 @@ class App {
         return [r, g, b];
     }
 
+    private codeForPixel(x: number, y: number): number {
+        const scale = this.zoomW / this.canvas.width;  // TODO: cache this calculation for optimization
+        const sx = x * scale + this.leftX;
+        const sy = y * scale + this.topY;
+        let code = countIter(sx, sy, iterationLimit);
+        return code;
+    }
+
+    private colorForPixel(x: number, y: number): [number, number, number] {
+        return this.codeToColor(this.codeForPixel(x, y));
+    }
+
     private jsDraw() {
         const eachPixel = (x: number, y: number) => {
-            return this.colorForPixel(x, y);
+            return this.codeForPixel(x, y);
         };
         const endTime = Date.now() + 12;  // 12 ms to draw as much as you can before moving to next frame
-        let drew = this.pixelOrderer.writePixels(this.canvas.width, this.canvas.height, eachPixel);
+        let drew = this.pixelOrderer.writePixels(eachPixel);
         while (drew && Date.now() < endTime) {
-            drew = this.pixelOrderer.writePixels(this.canvas.width, this.canvas.height, eachPixel);
+            drew = this.pixelOrderer.writePixels(eachPixel);
         }
         this.context.putImageData(this.pixelOrderer.rgba, 0, 0);
     }

@@ -6,14 +6,18 @@ import PixelOrderer from "./PixelOrderer";
  * from the vertical middle going up, then down.
  */
 class ScatterPixels implements PixelOrderer {
+    private codeToColor: (code: number) => [number, number, number];
     // initialized in updateZoom (really wish TypeScript would fix this)
+    private width!: number;
+    private height!: number;
     private _rgba!: ImageData;
     private nextIndex!: number;
     private levelBegin!: number;
     private nextIncrement!: number;
     private root!: number;
 
-    constructor(context: CanvasRenderingContext2D) {
+    constructor(context: CanvasRenderingContext2D, codeToColor: (code: number) => [number, number, number]) {
+        this.codeToColor = codeToColor;
         this.updateZoom(context);
     }
 
@@ -22,9 +26,11 @@ class ScatterPixels implements PixelOrderer {
     }
 
     public updateZoom(context: CanvasRenderingContext2D): void {
-        this._rgba = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+        this.width = context.canvas.width;
+        this.height = context.canvas.height;
+        this._rgba = context.getImageData(0, 0, this.width, this.height);
 
-        const pixelCount = context.canvas.width * context.canvas.height;
+        const pixelCount = this.width * this.height;
         this.levelBegin = (1 << Math.floor(Math.log2(pixelCount))) - 1;
         this.root = this.nextIndex = this.levelBegin;
         this.nextIncrement = (this.nextIndex + 1) << 1;
@@ -35,9 +41,7 @@ class ScatterPixels implements PixelOrderer {
      * 
      * @returns anything left to draw on this canvas
     */
-    public writePixels(width: number,
-                       height: number,
-                       callback: (x: number, y: number) => [number, number, number]): boolean {
+    public writePixels(callback: (x: number, y: number) => number): boolean {
         if (this.nextIncrement < 2) {
             // everything outside of canvas
             return false;
@@ -50,12 +54,12 @@ class ScatterPixels implements PixelOrderer {
         //     pixelIndex = (this.root - 1) - pixelIndex;
         // }
 
-        let x = pixelIndex % width;
-        let y = Math.floor(pixelIndex / width);
+        let x = pixelIndex % this.width;
+        let y = Math.floor(pixelIndex / this.width);
 
-        if (y < height) {
-            const baseIndex = (y * width + x) * 4;
-            let [r, g, b] = callback(x, y);
+        if (y < this.height) {
+            const baseIndex = (y * this.width + x) * 4;
+            let [r, g, b] = this.codeToColor(callback(x, y));
             this._rgba.data[baseIndex] = r;
             this._rgba.data[baseIndex + 1] = g;
             this._rgba.data[baseIndex + 2] = b;
