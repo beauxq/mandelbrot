@@ -1,5 +1,8 @@
 import PixelOrderer from "./PixelOrderer";
 
+/**
+ * Draw pixels from middle of canvas in squares going out towards the edges.
+ */
 class DrawFrame implements PixelOrderer {
     // initialized in updateZoom (really wish TypeScript would fix this)
     private _rgba!: ImageData;
@@ -27,7 +30,7 @@ class DrawFrame implements PixelOrderer {
      * 
      * @returns anything left to draw on this canvas
     */
-    public writeSquare(width: number,
+    public writePixels(width: number,
                        height: number,
                        callback: (x: number, y: number) => [number, number, number]): boolean {
         if (this.nextX < 0 && this.nextY < 0) {

@@ -1,7 +1,7 @@
 import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
-import DrawFrame from './DrawFrameScatter';
+import ScatterPixels from './ScatterPixels';
 import PixelOrderer from './PixelOrderer';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
@@ -20,7 +20,7 @@ const iterationLimit = 3648;  // quality of image when further zoomed in, but al
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
-    private drawFrame: PixelOrderer;
+    private pixelOrderer: PixelOrderer;
     private ct: CodeTransformer;
     private wa: WADrawer;
     private useWasm: boolean;
@@ -38,7 +38,7 @@ class App {
         this.canvas.width = width;
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
-        this.drawFrame = new DrawFrame(this.context);
+        this.pixelOrderer = new ScatterPixels(this.context);
 
         this.leftX = - 2.5;  // left side of canvas is real (x) = leftX in mandelbrot plane
         this.zoomE = defaultZoom * zoomExponentDenominator;
@@ -220,7 +220,7 @@ class App {
         }
         else {  // js instead of wasm
             if (this.changed) {
-                this.drawFrame.updateZoom(this.context);
+                this.pixelOrderer.updateZoom(this.context);
                 this.changed = false;
             }
             this.jsDraw();
@@ -265,12 +265,12 @@ class App {
         const eachPixel = (x: number, y: number) => {
             return this.colorForPixel(x, y);
         };
-        const endTime = Date.now() + 12;
-        let drew = this.drawFrame.writeSquare(this.canvas.width, this.canvas.height, eachPixel);
+        const endTime = Date.now() + 12;  // 12 ms to draw as much as you can before moving to next frame
+        let drew = this.pixelOrderer.writePixels(this.canvas.width, this.canvas.height, eachPixel);
         while (drew && Date.now() < endTime) {
-            drew = this.drawFrame.writeSquare(this.canvas.width, this.canvas.height, eachPixel);
+            drew = this.pixelOrderer.writePixels(this.canvas.width, this.canvas.height, eachPixel);
         }
-        this.context.putImageData(this.drawFrame.rgba, 0, 0);
+        this.context.putImageData(this.pixelOrderer.rgba, 0, 0);
     }
 }
 

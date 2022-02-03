@@ -1,6 +1,11 @@
 import PixelOrderer from "./PixelOrderer";
 
-class DrawFrame implements PixelOrderer {
+
+/**
+ * Draw pixels in multiple passes
+ * from the vertical middle going up, then down.
+ */
+class ScatterPixels implements PixelOrderer {
     // initialized in updateZoom (really wish TypeScript would fix this)
     private _rgba!: ImageData;
     private nextIndex!: number;
@@ -30,7 +35,7 @@ class DrawFrame implements PixelOrderer {
      * 
      * @returns anything left to draw on this canvas
     */
-    public writeSquare(width: number,
+    public writePixels(width: number,
                        height: number,
                        callback: (x: number, y: number) => [number, number, number]): boolean {
         if (this.nextIncrement < 2) {
@@ -68,4 +73,4 @@ class DrawFrame implements PixelOrderer {
     }
 }
 
-export default DrawFrame;
+export default ScatterPixels;
