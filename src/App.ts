@@ -152,7 +152,6 @@ class App {
 
     /** fill in some color around the edges when zooming out */
     private fastEdges(addedWidthLeft: number, addedHeightTop: number) {
-        // TODO: BUG: If I scroll out in ~ mid-right screen, this misses something in the bottom right
         addedWidthLeft = Math.ceil(addedWidthLeft);
         addedHeightTop = Math.ceil(addedHeightTop);
         const scalerDiff = zoomScaler - 1;
@@ -190,7 +189,7 @@ class App {
         // bottom row
         y = this.canvas.height - addedHeightBottom;
         midHeight = addedHeightBottom / 2;
-        for (x = addedWidthLeft; x < this.canvas.width - addedWidthLeft; x += width) {
+        for (x = addedWidthLeft; x < this.canvas.width - addedWidthRight; x += width) {
             const [r, g, b] = this.colorForPixel(x + midWidth, y + midHeight);
             this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
             this.context.fillRect(x, y, width, addedHeightBottom);
