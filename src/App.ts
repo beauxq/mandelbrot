@@ -5,6 +5,14 @@ import DrawFrame from './DrawFrame';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
 
+const zoomExponentDenominator = 4;  // defines how much to zoom with each zoom command
+const zoomScaler = 2 ** (1 / zoomExponentDenominator);
+
+const zoomOutLimit = 4;  // 2 ** zoomOutLimit = visible width of mandelbrot plane
+const zoomInLimit = -64;  // 2 ** -64 is total loss of 64-bit float precision
+const defaultZoom = 2;  // 2 ** defaultZoom = starts at 4 [-2.5, 1.5]
+
+
 class App {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
@@ -28,7 +36,7 @@ class App {
         this.drawFrame = new DrawFrame(this.context);
 
         this.leftX = - 2.5;  // left side of canvas is real (x) = leftX in mandelbrot plane
-        this.zoomE = 8;
+        this.zoomE = defaultZoom * zoomExponentDenominator;
         this.topY = - this.zoomH / 2;  // put imaginary (y) 0 in middle
 
         this.changed = true;
@@ -61,41 +69,44 @@ class App {
             const x = e.offsetX;
             const y = e.offsetY;
             /** mouse x 0 to 1 in window */
-            const xp = x / width;
+            const xp = x / this.canvas.width;
             /** mouse y 0 to 1 in window */
-            const yp = y / height;
+            const yp = y / this.canvas.height;
             const mandelbrotX = this.leftX + xp * this.zoomW;
             const mandelbrotY = this.topY + yp * this.zoomH;
             console.log("mandelbrotX", mandelbrotX, "mandelbrotY", mandelbrotY);
             let newWidth, newHeight, newLeft, newTop;  // of current canvas on new canvas
-            const scaler = 1.189207115002721;  // 2 ** (1/4) for transformation
             if (out) {
-                this.zoomE = Math.min(16, this.zoomE + 1);
+                this.zoomE = Math.min(zoomOutLimit * zoomExponentDenominator, this.zoomE + 1);
                 console.log("zoom out", this.zoomE);
-                newWidth = this.canvas.width / scaler;
-                newHeight = this.canvas.height / scaler;
-                newLeft = x - x / scaler;
-                newTop = y - y / scaler;
+                newWidth = this.canvas.width / zoomScaler;
+                newHeight = this.canvas.height / zoomScaler;
+                newLeft = x - x / zoomScaler;
+                newTop = y - y / zoomScaler;
             }
             else {  // zoom in
-                this.zoomE = Math.max(-256, this.zoomE - 1);  // -256 is about where you hit the limits of 64-bit float precision
+                this.zoomE = Math.max(zoomInLimit * zoomExponentDenominator, this.zoomE - 1);
                 console.log("zoom in ", this.zoomE);
-                newWidth = this.canvas.width * scaler;
-                newHeight = this.canvas.height * scaler;
-                newLeft = x - x * scaler;
-                newTop = y - y * scaler;
+                newWidth = this.canvas.width * zoomScaler;
+                newHeight = this.canvas.height * zoomScaler;
+                newLeft = x - x * zoomScaler;
+                newTop = y - y * zoomScaler;
             }
             // clamp these to not get lost too far away from home
-            // I can put 3 on the left, or -3 on the right (-19 + 2 ** (zoomE limit / 4))
-            this.leftX = Math.min(Math.max(mandelbrotX - xp * this.zoomW, -19), 3);
-            this.topY = Math.min(Math.max(mandelbrotY - yp * this.zoomH, -19), 3);
+            // I can put 3 on the left, or -3 on the right
+            this.leftX = Math.min(Math.max(mandelbrotX - xp * this.zoomW, -3 - 2 ** zoomOutLimit), 3);
+            this.topY = Math.min(Math.max(mandelbrotY - yp * this.zoomH, -3 - 2 ** zoomOutLimit), 3);
             // TODO: once I implement mobile controls, make sure the Y limit isn't too restrictive on a portrait screen
 
             this.osc.width = this.canvas.width;
             this.osc.height = this.canvas.height;
             const oscContext = this.osc.getContext('2d');
             oscContext?.drawImage(this.canvas, 0, 0);
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.context.drawImage(this.osc, newLeft, newTop, newWidth, newHeight);
+            if (out) {
+                this.fastEdges(newLeft, newTop);
+            }
 
             this.changed = true;
         });
@@ -112,23 +123,11 @@ class App {
         });
     }
 
-    public resize(width: number, height: number) {
-        this.canvas.width = width;
-        this.canvas.height = height;
-        this.context = this.canvas.getContext('2d')!;
-
-        this.wa.resize(width, height);
-
-        this.changed = true;
-    }
-
     /**
      * how much width (real component) of the mandelbrot plane is showing
-     * 
-     * starts at 4 [-2.5, 1.5]
      */
     private get zoomW() {
-        return Math.pow(2, this.zoomE / 4);
+        return Math.pow(2, this.zoomE / zoomExponentDenominator);
     }
 
     /**
@@ -140,8 +139,64 @@ class App {
         return this.zoomW * this.canvas.height / this.canvas.width;
     }
 
+    /** fill in some color around the edges when zooming out */
+    private fastEdges(addedWidthLeft: number, addedHeightTop: number) {
+        addedWidthLeft = Math.ceil(addedWidthLeft);
+        addedHeightTop = Math.ceil(addedHeightTop);
+        const scalerDiff = zoomScaler - 1;
+        const addedWidth = scalerDiff * this.canvas.width;
+        const addedWidthRight = Math.ceil(addedWidth - addedWidthLeft);
+        const addedHeight = scalerDiff * this.canvas.height;
+        const addedHeightBottom = Math.ceil(addedHeight - addedHeightTop);
+        let y = 0;
+        let x;
+        // top edge
+        const width = 16;
+        const midWidth = 8;
+        let midHeight = addedHeightTop / 2;
+        for (x = 0; x < this.canvas.width; x += width) {
+            const [r, g, b] = this.colorForPixel(x + midWidth, y + midHeight);
+            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            this.context.fillRect(x, y, width, addedHeightTop);
+        }
+        // left and right
+        const height = 16;
+        midHeight = 8;
+        let midWidthLeft = addedWidthLeft / 2;
+        let midWidthRight = addedWidthRight / 2;
+        x = this.canvas.width - addedWidthRight;  // last column
+        for (y = addedHeightTop; y < this.canvas.height; y += height) {
+            // left
+            let [r, g, b] = this.colorForPixel(midWidthLeft, y + midHeight);
+            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            this.context.fillRect(0, y, addedWidthLeft, height);
+            // right
+            [r, g, b] = this.colorForPixel(x + midWidthRight, y + midHeight);
+            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            this.context.fillRect(x, y, addedWidthRight, height);
+        }
+        // bottom row
+        y = this.canvas.height - addedHeightBottom;
+        midHeight = addedHeightBottom / 2;
+        for (x = addedWidthLeft; x < this.canvas.width - addedWidthLeft; x += width) {
+            const [r, g, b] = this.colorForPixel(x + midWidth, y + midHeight);
+            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            this.context.fillRect(x, y, width, addedHeightBottom);
+        }
+    }
+
+    public resize(width: number, height: number) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.context = this.canvas.getContext('2d')!;
+
+        this.wa.resize(width, height);
+
+        this.changed = true;
+    }
+
     private draw() {
-        if (this.wa.working) {
+        if (! this.wa.working) {
             if (this.changed) {
                 this.wa.draw(this.context,
                              this.canvas.width,
@@ -149,58 +204,50 @@ class App {
                              this.zoomW,
                              this.leftX,
                              this.topY);
+                this.changed = false;
             }
         }
         else {  // js instead of wasm
             if (this.changed) {
                 this.drawFrame.updateZoom(this.context);
+                this.changed = false;
             }
             this.jsDraw();
-        }
-        if (this.changed) {
-            if (this.wa.working) {
-                this.wa.draw(this.context,
-                            this.canvas.width,
-                            this.canvas.height,
-                            this.zoomW,
-                            this.leftX,
-                            this.topY);
-            }
-            else {  // js instead of wa
-                this.jsDraw();
-            }
-            console.log('draw completed');
-            this.changed = false;
         }
         requestAnimationFrame(() => {
             this.draw();
         });
     }
 
-    private jsDraw() {
-        const scale = this.zoomW / this.canvas.width;
-        const eachPixel: (x: number, y: number) => [number, number, number] = (x: number, y: number) => {
-            const sx = x * scale + this.leftX;
-            const sy = y * scale + this.topY;
-            let code = countIter(sx, sy);
-            if (code < 512) {
-                // console.log("before transform", code);
-                code = Math.floor(this.ct.f(code));
-                // console.log("after transform", code);
-                let r: number, g: number, b: number;
-                if (code > 255) {
-                    b = code - 256;
-                    g = 255 - b;
-                    r = 0;
-                }
-                else {
-                    r = 255 - code;
-                    g = code;
-                    b = 0;
-                }
-                return [r, g, b];
+    private colorForPixel(x: number, y: number): [number, number, number] {
+        const scale = this.zoomW / this.canvas.width;  // TODO: cache this calculation for optimization
+        const sx = x * scale + this.leftX;
+        const sy = y * scale + this.topY;
+        let code = countIter(sx, sy);
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        if (code < 512) {
+            // console.log("before transform", code);
+            code = Math.floor(this.ct.f(code));
+            // console.log("after transform", code);
+            if (code > 255) {
+                b = code - 256;
+                g = 255 - b;
+                r = 0;
             }
-            return [0, 0, 0];
+            else {
+                r = 255 - code;
+                g = code;
+                b = 0;
+            }
+        }
+        return [r, g, b];
+    }
+
+    private jsDraw() {
+        const eachPixel = (x: number, y: number) => {
+            return this.colorForPixel(x, y);
         };
         const endTime = Date.now() + 12;
         let drew = this.drawFrame.writeSquare(this.canvas.width, this.canvas.height, eachPixel);
