@@ -38,6 +38,8 @@ class App {
         this.canvas.width = width;
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
+        this.context.fillStyle = "black";
+        this.context.fillRect(0, 0, width, height);
         this.pixelOrderer = new ScatteringSquares(this.context, iterationLimit, (code: number) => {
             return this.codeToColor(code);
         });
