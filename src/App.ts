@@ -1,7 +1,7 @@
 import { countIter } from './mandelbrot';
 import CodeTransformer from './CodeTransformer';
 import WADrawer from './WADrawer';
-import ScatterPixels from './ScatterPixels';
+import ScatteringSquares from './ScatteringSquares';
 import PixelOrderer from './PixelOrderer';
 
 // TODO: in worker: https://developers.google.com/web/updates/2018/08/offscreen-canvas
@@ -13,7 +13,7 @@ const zoomOutLimit = 4;  // 2 ** zoomOutLimit = visible width of mandelbrot plan
 const zoomInLimit = -64;  // 2 ** -64 is total loss of 64-bit float precision
 const defaultZoom = 2;  // 2 ** defaultZoom = starts at 4 [-2.5, 1.5]
 
-const iterationLimit = 3648;  // quality of image when further zoomed in, but also render time
+const iterationLimit = 2112;  // quality of image when further zoomed in, but also render time
 // to get purple edges, this needs to be (a multiple of 768) + about 576
 
 
@@ -38,7 +38,7 @@ class App {
         this.canvas.width = width;
         this.canvas.height = height;
         this.context = this.canvas.getContext('2d')!;
-        this.pixelOrderer = new ScatterPixels(this.context, (code: number) => {
+        this.pixelOrderer = new ScatteringSquares(this.context, iterationLimit, (code: number) => {
             return this.codeToColor(code);
         });
 

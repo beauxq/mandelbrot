@@ -10,7 +10,10 @@ const codeRangeDivision = 256;
  * deferring heavy squares until later.
  */
 class ScatteringSquares implements PixelOrderer {
+    private codeToColor: (code: number) => [number, number, number];
     // initialized in updateZoom (really wish TypeScript would fix this)
+    private width!: number;
+    private height!: number;
     private _rgba!: ImageData;
     private horizontalSquareCount!: number;
     private verticalSquareCount!: number;
@@ -19,11 +22,14 @@ class ScatteringSquares implements PixelOrderer {
     private nextIncrement!: number;
     private root!: number;
 
+    private squareQueueIndex!: number;
     private currentQueue!: number;
     private queues!: number[][];
+    private queueLowerLimits!: number[];
     private codeRange: number;
 
-    constructor(context: CanvasRenderingContext2D, codeRange: number) {
+    constructor(context: CanvasRenderingContext2D, codeRange: number, codeToColor: (code: number) => [number, number, number]) {
+        this.codeToColor = codeToColor;
         this.codeRange = codeRange
         this.updateZoom(context);
     }
@@ -33,15 +39,18 @@ class ScatteringSquares implements PixelOrderer {
     }
 
     public updateZoom(context: CanvasRenderingContext2D): void {
-        this._rgba = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+        this.width = context.canvas.width;
+        this.height = context.canvas.height;
+        this._rgba = context.getImageData(0, 0, this.width, this.height);
 
-        this.horizontalSquareCount = Math.ceil(context.canvas.width / squareSize);
-        this.verticalSquareCount = Math.ceil(context.canvas.height / squareSize);
+        this.horizontalSquareCount = Math.ceil(this.width / squareSize);
+        this.verticalSquareCount = Math.ceil(this.height / squareSize);
         const squareCount = this.horizontalSquareCount * this.verticalSquareCount;
         this.levelBegin = (1 << Math.floor(Math.log2(squareCount))) - 1;
         this.root = this.nextIndex = this.levelBegin;
         this.nextIncrement = (this.nextIndex + 1) << 1;
 
+        this.squareQueueIndex = 0;
         this.currentQueue = -1;  // -1 is what we do while checking to see what goes in which queue
 
         // one for the highest value (+1), and one for each codeRangeDivision
@@ -49,6 +58,50 @@ class ScatteringSquares implements PixelOrderer {
         const queueCount = Math.ceil((this.codeRange - 1) / codeRangeDivision);
 
         this.queues = Array(queueCount).fill([]);  // https://www.designcise.com/web/tutorial/are-there-any-differences-between-using-array-and-new-array-in-javascript
+        this.queueLowerLimits = [];
+        for (let i = 1; i < queueCount; ++i) {
+            this.queueLowerLimits.push(i * codeRangeDivision);
+        }
+        this.queueLowerLimits.push(this.codeRange);
+    }
+
+    private colorThisPixel(x: number, y: number, code: number): void {
+        const baseIndex = (y * this.width + x) * 4;
+        let [r, g, b] = this.codeToColor(code);
+        this._rgba.data[baseIndex] = r;
+        this._rgba.data[baseIndex + 1] = g;
+        this._rgba.data[baseIndex + 2] = b;
+        this._rgba.data[baseIndex + 3] = 255;
+    }
+
+    private colorThisSquare(squareIndex: number, callback: (x: number, y: number) => number): void {
+        // 4 corners are already done
+        let squareX = squareIndex % this.horizontalSquareCount;
+        let squareY = Math.floor(squareIndex / this.horizontalSquareCount);
+        
+        const leftX = squareX * squareSize;
+        const rightX = Math.min((squareX + 1) * squareSize - 1, this.width);
+        const topY = squareY * squareSize;
+        const bottomY = Math.min((squareY + 1) * squareSize - 1, this.height);
+        const topLeft = callback(leftX, topY);
+        this.colorThisPixel(leftX, topY, topLeft);
+        // top row
+        for (let x = leftX + 1; x < rightX; ++x) {
+            const code = callback(x, topY);
+            this.colorThisPixel(x, topY, code);
+        }
+        // between top and bottom rows
+        for (let y = topY + 1; y < bottomY; ++y) {
+            for (let x = leftX; x <= rightX; ++x) {
+                const code = callback(x, y);
+                this.colorThisPixel(x, y, code);
+            }
+        }
+        // bottom row
+        for (let x = leftX + 1; x < rightX; ++x) {
+            const code = callback(x, bottomY);
+            this.colorThisPixel(x, bottomY, code);
+        }
     }
 
     /**
@@ -77,13 +130,35 @@ class ScatteringSquares implements PixelOrderer {
             let squareX = squareIndex % this.horizontalSquareCount;
             let squareY = Math.floor(squareIndex / this.horizontalSquareCount);
 
-            if (y < height) {
-                const baseIndex = (y * width + x) * 4;
-                let [r, g, b] = callback(x, y);
-                this._rgba.data[baseIndex] = r;
-                this._rgba.data[baseIndex + 1] = g;
-                this._rgba.data[baseIndex + 2] = b;
-                this._rgba.data[baseIndex + 3] = 255;
+            if (squareY < this.verticalSquareCount) {
+                const leftX = squareX * squareSize;
+                const rightX = Math.min((squareX + 1) * squareSize - 1, this.width);
+                const topY = squareY * squareSize;
+                const bottomY = Math.min((squareY + 1) * squareSize - 1, this.height);
+                const topLeft = callback(leftX, topY);
+                this.colorThisPixel(leftX, topY, topLeft);
+                const topRight = callback(rightX, topY);
+                this.colorThisPixel(rightX, topY, topRight);
+                const botLeft = callback(leftX, bottomY);
+                this.colorThisPixel(leftX, bottomY, botLeft);
+                const botRight = callback(rightX, bottomY);
+                this.colorThisPixel(rightX, bottomY, botRight);
+
+                let queueI: number;
+                for (queueI = this.queues.length - 1; queueI >= 0; --queueI) {
+                    const limit = this.queueLowerLimits[queueI];
+                    if (topLeft >= limit
+                     && topRight >= limit
+                     && botLeft >= limit
+                     && botRight >= limit) {
+                        this.queues[queueI].push(squareIndex);
+                        break;
+                    }
+                }
+                if (queueI == -1) {  // didn't put this in a queue
+                    // do it now
+                    this.colorThisSquare(squareIndex, callback);
+                }
 
                 this.nextIndex += this.nextIncrement;
             }
@@ -93,11 +168,19 @@ class ScatteringSquares implements PixelOrderer {
                 this.nextIndex = this.levelBegin;
                 this.nextIncrement = this.nextIncrement >> 1;
             }
-            return true;
         }
         else {  // have filled queues
-
+            const cQueue = this.queues[this.currentQueue];
+            if (this.squareQueueIndex >= cQueue.length) {
+                this.squareQueueIndex = 0;
+                ++this.currentQueue;
+            }
+            else {
+                this.colorThisSquare(cQueue[this.squareQueueIndex], callback);
+                ++this.squareQueueIndex;
+            }
         }
+        return true;
     }
 }
 
