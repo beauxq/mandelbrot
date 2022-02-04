@@ -162,37 +162,37 @@ class App {
         let y = 0;
         let x;
         // top edge
-        const width = 16;
-        const midWidth = 8;
-        let midHeight = addedHeightTop / 2;
-        for (x = 0; x < this.canvas.width; x += width) {
-            const [r, g, b] = this.colorForPixel(x + midWidth, y + midHeight);
-            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            this.context.fillRect(x, y, width, addedHeightTop);
+        const length = 16;
+        const midLength = 8;
+        for (x = 0; x < this.canvas.width; x += length) {
+            for (y = 0; y < addedHeightTop; y += length) {
+                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                this.context.fillRect(x, y, length, length);
+            }
         }
         // left and right
-        const height = 16;
-        midHeight = 8;
-        let midWidthLeft = addedWidthLeft / 2;
-        let midWidthRight = addedWidthRight / 2;
-        x = this.canvas.width - addedWidthRight;  // last column
-        for (y = addedHeightTop; y < this.canvas.height; y += height) {
+        for (y = addedHeightTop; y < this.canvas.height; y += length) {
             // left
-            let [r, g, b] = this.colorForPixel(midWidthLeft, y + midHeight);
-            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            this.context.fillRect(0, y, addedWidthLeft, height);
+            for (x = 0; x < addedWidthLeft; x += length) {
+                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                this.context.fillRect(x, y, length, length);
+            }
             // right
-            [r, g, b] = this.colorForPixel(x + midWidthRight, y + midHeight);
-            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            this.context.fillRect(x, y, addedWidthRight, height);
+            for (x = this.canvas.width - addedWidthRight; x < this.canvas.width; x += length) {
+                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                this.context.fillRect(x, y, length, length);
+            }
         }
         // bottom row
-        y = this.canvas.height - addedHeightBottom;
-        midHeight = addedHeightBottom / 2;
-        for (x = addedWidthLeft; x < this.canvas.width - addedWidthRight; x += width) {
-            const [r, g, b] = this.colorForPixel(x + midWidth, y + midHeight);
-            this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            this.context.fillRect(x, y, width, addedHeightBottom);
+        for (x = addedWidthLeft; x < this.canvas.width - addedWidthRight; x += length) {
+            for (y = this.canvas.height - addedHeightBottom; y < this.canvas.height; y += length) {
+                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                this.context.fillRect(x, y, length, length);
+            }
         }
     }
 
