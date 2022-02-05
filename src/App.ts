@@ -16,6 +16,8 @@ const defaultZoom = 2;  // 2 ** defaultZoom = starts at 4 [-2.5, 1.5]
 const iterationLimit = 2112;  // quality of image when further zoomed in, but also render time
 // to get purple edges, this needs to be (a multiple of 768) + about 576
 
+const noDrag = -77;  // flag: a pixel off of the visible canvas
+
 
 class App {
     private canvas: HTMLCanvasElement;
@@ -32,6 +34,9 @@ class App {
 
     private changed: boolean;
     private osc: HTMLCanvasElement;  // for copying image with different transformation when changing it
+
+    private startDragX: number;
+    private startDragY: number;
 
     constructor(width: number, height: number) {
         this.canvas = document.getElementById('c') as HTMLCanvasElement;
@@ -51,10 +56,14 @@ class App {
         this.changed = true;
         this.osc = document.createElement('canvas');
 
+        this.startDragX = noDrag;
+        this.startDragY = noDrag;
+
         this.ct = new CodeTransformer(5, iterationLimit);
         this.wa = new WADrawer(width, height, 5, 512);  // TODO: apply iterationLimit to wasm
         this.useWasm = false;  // TODO: option to toggle this on and off
 
+        /* put this on something else, click used for dragging
         this.canvas.addEventListener('click', () => {
             if (this.useWasm && this.wa.working) {
                 // this.wa.updateB(5, 512);  // TODO: this
@@ -73,8 +82,9 @@ class App {
                 this.ct.b = Math.max(1, this.ct.b - 1);
             }
             this.changed = true;
-        });
+        }); */
         this.canvas.addEventListener('wheel', (e) => {
+            // TODO: disable zoom while dragging? I don't know what will happen if both happen at the same time
             const out = e.deltaY > 0;
             const x = e.offsetX;
             const y = e.offsetY;
@@ -118,10 +128,43 @@ class App {
             this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
             this.context.drawImage(this.osc, newLeft, newTop, newWidth, newHeight);
             if (out) {
-                this.fastEdges(newLeft, newTop);
+                this.fastEdges(newLeft, newTop, zoomScaler);
             }
 
             this.changed = true;
+        });
+
+        // drag events
+        this.canvas.addEventListener('mousedown', (e) => {
+            this.startDragX = e.offsetX;
+            this.startDragY = e.offsetY;
+
+            this.osc.width = this.canvas.width;
+            this.osc.height = this.canvas.height;
+            const oscContext = this.osc.getContext('2d');
+            oscContext?.drawImage(this.canvas, 0, 0);
+        });
+        this.canvas.addEventListener("mousemove", (e) => {
+            if (this.startDragY != noDrag) {
+                const x = e.offsetX;
+                const y = e.offsetY;
+                const dx = x - this.startDragX;
+                const dy = y - this.startDragY;
+                
+                this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.context.drawImage(this.osc, dx, dy, this.canvas.width, this.canvas.height);
+                this.fastEdges(dx, dy, 1);  // TODO: need to rework this if not zooming
+            }
+        });
+        this.canvas.addEventListener("mouseup", (e) => {
+            if (this.startDragY != noDrag) {
+                this.stopDrag(e.offsetX, e.offsetY);
+            }
+        });
+        this.canvas.addEventListener("mouseleave", (e) => {
+            if (this.startDragY != noDrag) {
+                this.stopDrag(e.offsetX, e.offsetY);
+            }
         });
 
         // TODO: move to unit tests
@@ -152,15 +195,42 @@ class App {
         return this.zoomW * this.canvas.height / this.canvas.width;
     }
 
+    private stopDrag(endX: number, endY: number): void {
+            /** mouse x 0 to 1 in window */
+            const startXP = this.startDragX / this.canvas.width;
+            /** mouse y 0 to 1 in window */
+            const startYP = this.startDragY / this.canvas.height;
+            const startMX = this.leftX + startXP * this.zoomW;
+            const startMY = this.topY + startYP * this.zoomH;
+
+            /** mouse x 0 to 1 in window */
+            const endXP = endX / this.canvas.width;
+            /** mouse y 0 to 1 in window */
+            const endYP = endY / this.canvas.height;
+
+            this.leftX = startMX - endXP * this.zoomW;
+            this.topY =startMY - endYP * this.zoomH;
+            
+            this.startDragX = noDrag;
+            this.startDragY = noDrag;
+            this.changed = true;
+    }
+
     /** fill in some color around the edges when zooming out */
-    private fastEdges(addedWidthLeft: number, addedHeightTop: number) {
+    private fastEdges(addedWidthLeft: number, addedHeightTop: number, scaled: number) {
         addedWidthLeft = Math.ceil(addedWidthLeft);
         addedHeightTop = Math.ceil(addedHeightTop);
-        const scalerDiff = zoomScaler - 1;
+        const scalerDiff = scaled - 1;
         const addedWidth = scalerDiff * this.canvas.width;
         const addedWidthRight = Math.ceil(addedWidth - addedWidthLeft);
         const addedHeight = scalerDiff * this.canvas.height;
         const addedHeightBottom = Math.ceil(addedHeight - addedHeightTop);
+
+        // TODO: refactor: this feels kind of hacky
+        // if not scaling (for zoom), we're translating (for drag)
+        const translateX = (scaled == 1) ? -addedWidthLeft : 0;
+        const translateY = (scaled == 1) ? -addedHeightTop : 0;
+
         let y = 0;
         let x;
         // top edge
@@ -168,7 +238,7 @@ class App {
         const midLength = 8;
         for (x = 0; x < this.canvas.width; x += length) {
             for (y = 0; y < addedHeightTop; y += length) {
-                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                const [r, g, b] = this.colorForPixel(x + midLength + translateX, y + midLength + translateY);
                 this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 this.context.fillRect(x, y, length, length);
             }
@@ -177,13 +247,13 @@ class App {
         for (y = addedHeightTop; y < this.canvas.height; y += length) {
             // left
             for (x = 0; x < addedWidthLeft; x += length) {
-                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                const [r, g, b] = this.colorForPixel(x + midLength + translateX, y + midLength + translateY);
                 this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 this.context.fillRect(x, y, length, length);
             }
             // right
             for (x = this.canvas.width - addedWidthRight; x < this.canvas.width; x += length) {
-                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                const [r, g, b] = this.colorForPixel(x + midLength + translateX, y + midLength + translateY);
                 this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 this.context.fillRect(x, y, length, length);
             }
@@ -191,7 +261,7 @@ class App {
         // bottom row
         for (x = addedWidthLeft; x < this.canvas.width - addedWidthRight; x += length) {
             for (y = this.canvas.height - addedHeightBottom; y < this.canvas.height; y += length) {
-                const [r, g, b] = this.colorForPixel(x + midLength, y + midLength);
+                const [r, g, b] = this.colorForPixel(x + midLength + translateX, y + midLength + translateY);
                 this.context.fillStyle = `rgb(${r}, ${g}, ${b})`;
                 this.context.fillRect(x, y, length, length);
             }
@@ -282,7 +352,9 @@ class App {
         while (drew && Date.now() < endTime) {
             drew = this.pixelOrderer.writePixels(eachPixel);
         }
-        this.context.putImageData(this.pixelOrderer.rgba, 0, 0);
+        if (this.startDragY == noDrag) {
+            this.context.putImageData(this.pixelOrderer.rgba, 0, 0);
+        }
     }
 }
 
