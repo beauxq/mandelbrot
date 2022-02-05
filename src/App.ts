@@ -115,11 +115,9 @@ class App {
                 newLeft = (x + 0.5) - (x + 0.5) * zoomScaler;
                 newTop = (y + 0.5) - (y + 0.5) * zoomScaler;
             }
-            // clamp these to not get lost too far away from home
-            // I can put 3 on the left, or -3 on the right
-            this.leftX = Math.min(Math.max(mandelbrotX - xp * this.zoomW, -3 - 2 ** zoomOutLimit), 3);
-            this.topY = Math.min(Math.max(mandelbrotY - yp * this.zoomH, -3 - 2 ** zoomOutLimit), 3);
-            // TODO: once I implement mobile controls, make sure the Y limit isn't too restrictive on a portrait screen
+            this.leftX = mandelbrotX - xp * this.zoomW;
+            this.topY = mandelbrotY - yp * this.zoomH;
+            this.limitPan();
 
             this.osc.width = this.canvas.width;
             this.osc.height = this.canvas.height;
@@ -195,6 +193,14 @@ class App {
         return this.zoomW * this.canvas.height / this.canvas.width;
     }
 
+    private limitPan() {
+        // clamp these to not get lost too far away from home
+        // I can put 3 on the left, or -3 on the right
+        this.leftX = Math.min(Math.max(this.leftX, -3 - 2 ** zoomOutLimit), 3);
+        this.topY = Math.min(Math.max(this.topY, -3 - 2 ** zoomOutLimit), 3);
+        // TODO: once I implement mobile controls, make sure the Y limit isn't too restrictive on a portrait screen
+    }
+
     private stopDrag(endX: number, endY: number): void {
             /** mouse x 0 to 1 in window */
             const startXP = this.startDragX / this.canvas.width;
@@ -209,7 +215,8 @@ class App {
             const endYP = endY / this.canvas.height;
 
             this.leftX = startMX - endXP * this.zoomW;
-            this.topY =startMY - endYP * this.zoomH;
+            this.topY = startMY - endYP * this.zoomH;
+            this.limitPan();
             
             if (! (endX == this.startDragX && endY == this.startDragY)) {
                 console.log(`drag change ${endX - this.startDragX} ${endY - this.startDragY}`);
