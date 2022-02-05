@@ -59,12 +59,17 @@ class ScatteringSquares implements PixelOrderer {
         // except for the 1st, because we do that while filling queues (-1)
         const queueCount = Math.ceil((this.codeRange - 1) / codeRangeDivision);
 
-        this.queues = Array(queueCount).fill([]);  // https://www.designcise.com/web/tutorial/are-there-any-differences-between-using-array-and-new-array-in-javascript
+        this.queues = [];
+        // tried Array.fill, but it puts the same instance of the array in multiple times
+        for (let i = queueCount; i > 0; --i) {
+            this.queues.push([]);
+        }
         this.queueLowerLimits = [];
         for (let i = 1; i < queueCount; ++i) {
             this.queueLowerLimits.push(i * codeRangeDivision);
         }
         this.queueLowerLimits.push(this.codeRange);
+        console.log(this.queueLowerLimits);
     }
 
     private colorThisPixel(x: number, y: number, code: number): void {
@@ -118,6 +123,10 @@ class ScatteringSquares implements PixelOrderer {
         }
         if (this.currentQueue == -1) {  // haven't filled queues yet
             if (this.nextIncrement < 2) {
+                // debug
+                for (let i = 0; i < this.queues.length; ++i) {
+                    console.log(this.queues[i].length);
+                }
                 // everything outside of canvas
                 this.currentQueue = 0;
             }
