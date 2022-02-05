@@ -3,6 +3,8 @@ import PixelOrderer from "./PixelOrderer";
 const squareSize = 16;
 const codeRangeDivision = 256;
 
+// TODO: BUG: leftmost pixels behave weird
+
 
 /**
  * Choose scattered squares in multiple passes
