@@ -13,7 +13,7 @@ const codeRangeDivision = 256;
  */
 class ScatteringSquares implements PixelOrderer {
     private codeToColor: (code: number) => [number, number, number];
-    // initialized in updateZoom (really wish TypeScript would fix this)
+    // initialized in reset (really wish TypeScript would fix this)
     private width!: number;
     private height!: number;
     private _rgba!: ImageData;
@@ -33,14 +33,14 @@ class ScatteringSquares implements PixelOrderer {
     constructor(context: CanvasRenderingContext2D, codeRange: number, codeToColor: (code: number) => [number, number, number]) {
         this.codeToColor = codeToColor;
         this.codeRange = codeRange
-        this.updateZoom(context);
+        this.reset(context);
     }
 
     public get rgba() {
         return this._rgba;
     }
 
-    public updateZoom(context: CanvasRenderingContext2D): void {
+    public reset(context: CanvasRenderingContext2D): void {
         this.width = context.canvas.width;
         this.height = context.canvas.height;
         this._rgba = context.getImageData(0, 0, this.width, this.height);

@@ -294,7 +294,7 @@ class App {
         }
         else {  // js instead of wasm
             if (this.changed) {
-                this.pixelOrderer.updateZoom(this.context);
+                this.pixelOrderer.reset(this.context);
                 this.changed = false;
             }
             this.jsDraw();
