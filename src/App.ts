@@ -13,7 +13,7 @@ const zoomOutLimit = 4;  // 2 ** zoomOutLimit = visible width of mandelbrot plan
 const zoomInLimit = -64;  // 2 ** -64 is total loss of 64-bit float precision
 const defaultZoom = 2;  // 2 ** defaultZoom = starts at 4 [-2.5, 1.5]
 
-const iterationLimit = 2112;  // quality of image when further zoomed in, but also render time
+const iterationLimit = 1344;  // quality of image when further zoomed in, but also render time
 // to get purple edges, this needs to be (a multiple of 768) + about 576
 
 const noDrag = -77;  // flag: a pixel off of the visible canvas
