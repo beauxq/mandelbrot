@@ -211,9 +211,12 @@ class App {
             this.leftX = startMX - endXP * this.zoomW;
             this.topY =startMY - endYP * this.zoomH;
             
+            if (! (endX == this.startDragX && endY == this.startDragY)) {
+                console.log(`drag change ${endX - this.startDragX} ${endY - this.startDragY}`);
+                this.changed = true;
+            }
             this.startDragX = noDrag;
             this.startDragY = noDrag;
-            this.changed = true;
     }
 
     /** fill in some color around the edges when zooming out */
