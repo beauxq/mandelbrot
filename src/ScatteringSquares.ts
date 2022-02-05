@@ -1,7 +1,7 @@
 import PixelOrderer from "./PixelOrderer";
 
-const squareSize = 16;
-const codeRangeDivision = 256;
+const squareSize = 8;
+const codeRangeDivision = 512;
 
 // TODO: BUG: leftmost pixels behave weird
 
