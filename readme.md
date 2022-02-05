@@ -3,11 +3,15 @@
 
 in a webpage
 
-uses WebAssembly
-
 https://beauxq.github.io/mandelbrot/
 
-### build notes
+## WebAssembly build notes
+
+If you want to build without WebAssembly, there are some comments to change at the top of WADrawer.ts, then `npx webpack`
+
+I made a renderer in WebAssembly, but it's not better than rendering in JavaScript until Firefox fixes OffscreenCanvas.
+https://bugzilla.mozilla.org/show_bug.cgi?id=801176
+So it's disabled.
 
 build scripts use emsdk installed with these instructions: https://emscripten.org/docs/getting_started/downloads.html
 

@@ -1,4 +1,6 @@
 import { drawWasm } from './drawWasm';
+// to build without WASM, disable the above line and enable the below line
+// export const drawWasm = 'AGFzbQEAAAABEQRgAAF/YAAAYAF/AGABfwF/AwYFAQACAwAEBQFwAQEBBQYBAYACgAIGCQF/AUGQiMACCwd1BwZtZW1vcnkCABFfX3dhc21fY2FsbF9jdG9ycwAAEF9fZXJybm9fbG9jYXRpb24ABAlzdGFja1NhdmUAAQxzdGFja1Jlc3RvcmUAAgpzdGFja0FsbG9jAAMZX19pbmRpcmVjdF9mdW5jdGlvbl90YWJsZQEACigFAwABCwQAIwALBgAgACQACxAAIwAgAGtBcHEiACQAIAALBQBBgAgL';
 
 // TODO: wasm in worker: https://www.kevinhoyt.com/2018/10/31/transferable-imagedata/
 
